@@ -35,14 +35,12 @@
         }
 
         async function initDashboard() {
-            // Ambil potongan HTML secara asinkronus
             await loadComponent('header-component', 'components/header.html');
             await loadComponent('metrics-component', 'components/metric-cards.html');
             await loadComponent('chart-component', 'components/chart-row.html');
             await loadComponent('prediction-component', 'components/prediction-table.html');
             await loadComponent('footer-component', 'components/footer.html');
 
-            // Jalankan Script Utama jika semua kerangka HTML komponen sudah siap terpasang
             const mainScript = document.createElement('script');
             mainScript.src = 'UI.js';
             document.body.appendChild(mainScript);
