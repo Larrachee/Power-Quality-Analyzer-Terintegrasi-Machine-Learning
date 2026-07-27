@@ -1,0 +1,112 @@
+const http = require('http');
+const mysql = require('mysql2');
+const WebSocket = require('ws');
+
+// 1. KONEKSI KE MYSQL LOKAL XAMPP
+const db = mysql.createConnection({
+    host: 'localhost',      
+    user: 'root',           
+    password: '',           
+    database: 'db_power_quality'
+});
+
+db.connect((err) => {
+    if (err) {
+        console.error('[-] Gagal terhubung ke MySQL XAMPP:', err.message);
+        return;
+    }
+    console.log('[+] Sukses: Terhubung ke MySQL XAMPP Lokal!');
+});
+
+// 2. MEMBUAT HTTP SERVER & WEBSOCKET SERVER
+const PORT = 3000;
+
+// Variabel Timer untuk membatasi frekuensi penyimpanan ke Database
+let lastDbSaveTime = 0;
+const DB_SAVE_INTERVAL = 20 * 60 * 1000; // 20 Menit dalam satuan milidetik
+
+const server = http.createServer((req, res) => {
+    // Memberikan izin CORS agar website lokal bisa membaca API
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        res.end();
+        return;
+    }
+
+    if (req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk.toString(); });
+
+        req.on('end', () => {
+            try {
+                const data = JSON.parse(body);
+                
+                // Menampilkan log data masuk di terminal CMD setiap detik (hanya untuk monitor visual terminal)
+                console.log(`\n[->] Data Masuk (Web Realtime): V=${data.v}V | I=${data.i}A | P=${data.p}W`);
+
+                // A. SELALU BROADCAST KE WEBSITE (Website tetap bergerak real-time per detik)
+                wss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify(data));
+                    }
+                });
+
+                // B. SIMPAN KE DATABASE HANYA SETIAP 20 MENIT
+                const waktuSekarang = Date.now();
+                if (waktuSekarang - lastDbSaveTime >= DB_SAVE_INTERVAL) {
+                    lastDbSaveTime = waktuSekarang; // Reset timer ke waktu saat ini
+
+                    const voltage = data.v;
+                    const current = data.i;
+                    const power = data.p;
+                    const energy = data.e;
+                    const frequency = data.f;
+                    const pf = data.pf;
+
+                    const sqlQuery = `INSERT INTO monitoring_pzem 
+                        (voltage, current, power, energy, frequency, power_factor) 
+                        VALUES (?, ?, ?, ?, ?, ?)`;
+                    
+                    const values = [voltage, current, power, energy, frequency, pf];
+
+                    db.query(sqlQuery, values, (err, result) => {
+                        if (err) {
+                            console.error('[-] Gagal menyimpan ke MySQL:', err.message);
+                        } else {
+                            console.log(`[+] [DATABASE SAVED] Tersimpan ke MySQL (Interval 20 Menit)! ID: ${result.insertId}`);
+                        }
+                    });
+                }
+
+                // Memberikan balasan ke ESP32 bahwa data sudah diterima dengan sukses (setiap detik)
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ status: 'success' }));
+
+            } catch (error) {
+                console.error('[-] Gagal memproses JSON:', error.message);
+                res.writeHead(400, { 'Content-Type': 'text/plain' });
+                res.end('Invalid JSON');
+            }
+        });
+    } else {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
+    }
+});
+
+// Inisialisasi WebSocket Server
+const wss = new WebSocket.Server({ server });
+
+wss.on('connection', (ws) => {
+    console.log('[+] Website Lokal terhubung ke WebSocket Server!');
+});
+
+// Menambahkan '0.0.0.0' agar bisa diakses oleh ESP32 di jaringan yang sama
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`[+] HTTP & WebSocket Server Standby di Port ${PORT}`);
+    console.log(`[...] Menunggu data ESP32 (Pastikan IP Laptop di ESP32 sudah benar) & koneksi dari Website...`);
+});
