@@ -187,16 +187,15 @@
 
     // ---------- MODUL PREDIKSI FUZZY LOGIC (SUGENO) ----------
     function hitungPrediksiFuzzy(dataHistoris) {
-        if (!dataHistoris || dataHistoris.length < 2) return null;
+        // UBAH: Mengizinkan data 1 hari agar tabel prediksi tidak hilang di awal minggu
+        if (!dataHistoris || dataHistoris.length === 0) return null;
 
-        // Menggunakan TOTAL (kWh) ketimbang Rata-rata
         const totalMingguIni = dataHistoris.reduce((a, b) => a + b, 0);
-        const trenKasar = dataHistoris[dataHistoris.length - 1] - dataHistoris[0];
+        // Jika data baru 1 hari, tren dianggap 0 (stabil)
+        const trenKasar = dataHistoris.length > 1 ? dataHistoris[dataHistoris.length - 1] - dataHistoris[0] : 0;
 
         let muTurun = 0, muStabil = 0, muNaik = 0;
-
-        // BATAS TOLERANSI 0.5 kWh
-        const batas = 0.5;
+        const batas = 0.5; // Batas toleransi 0.5 kWh
 
         if (trenKasar < -batas) {
             muTurun = 1;
@@ -210,15 +209,14 @@
             muNaik = 1;
         }
 
-        const outTurun = 0.90; // Turun 10%
-        const outStabil = 1.00; // Tetap
-        const outNaik = 1.15;  // Naik 15%
+        const outTurun = 0.90;
+        const outStabil = 1.00;
+        const outNaik = 1.15;
 
         const pembilang = (muTurun * outTurun) + (muStabil * outStabil) + (muNaik * outNaik);
         const penyebut = muTurun + muStabil + muNaik;
         const pengaliFuzzy = pembilang / (penyebut || 1);
 
-        // Prediksi TOTAL pemakaian minggu depan
         const prediksiTotalDepan = totalMingguIni * pengaliFuzzy;
         const selisihKwh = prediksiTotalDepan - totalMingguIni;
 
@@ -232,7 +230,6 @@
             status: statusLevel
         };
     }
-    
 
     // ---------- MODUL REKAPITULASI MINGGUAN & CHART TABEL (DINAMIS) ----------
     async function updateTabelMingguan() {
@@ -242,12 +239,13 @@
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;"><i class="fas fa-spinner fa-spin"></i> Memuat Data Mingguan...</td></tr>';
 
         let weeklyList = [];
+        let rawData = [];
 
         try {
             const response = await fetch('http://localhost/api_prediksi.php');
             if (!response.ok) throw new Error("Koneksi API Gagal");
 
-            const rawData = await response.json();
+            rawData = await response.json();
 
             if (!Array.isArray(rawData) || rawData.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#64748b;">Belum ada data di database</td></tr>';
@@ -267,7 +265,6 @@
                 const tglAwal = new Date(weekData[0].tanggal).toLocaleDateString('id-ID', dateOptions);
                 const tglAkhir = new Date(weekData[weekData.length - 1].tanggal).toLocaleDateString('id-ID', dateOptions);
 
-                // TARGET 'total_kwh_harian'
                 const dailyKwh = weekData.map(item => parseFloat(item.total_kwh_harian));
 
                 weeklyList.push({
@@ -285,32 +282,49 @@
             return;
         }
 
-        // Prediksi Minggu Depan
+        // --- PREDIKSI MINGGU DEPAN DENGAN TANGGAL OTOMATIS ---
         if (weeklyList.length > 0) {
             const lastWeekData = weeklyList[weeklyList.length - 1].dailyData;
             const prediksiFuzzy = hitungPrediksiFuzzy(lastWeekData);
 
             if (prediksiFuzzy) {
+                // Mengambil tanggal terakhir dari database
+                const lastDataDate = new Date(rawData[rawData.length - 1].tanggal);
+
+                // Menghitung tanggal prediksi (Besok s/d 7 Hari Kedepan)
+                const tglMulaiPrediksi = new Date(lastDataDate);
+                tglMulaiPrediksi.setDate(tglMulaiPrediksi.getDate() + 1); // Tambah 1 hari
+
+                const tglAkhirPrediksi = new Date(tglMulaiPrediksi);
+                tglAkhirPrediksi.setDate(tglAkhirPrediksi.getDate() + 6); // Rentang 7 hari
+
+                const dateOptions = { day: '2-digit', month: 'short' };
+                const strMulai = tglMulaiPrediksi.toLocaleDateString('id-ID', dateOptions);
+                const strAkhir = tglAkhirPrediksi.toLocaleDateString('id-ID', dateOptions);
+
                 weeklyList.push({
-                    minggu: "Minggu Depan (Prediksi)",
-                    tanggal: "Estimasi 7 Hari Kedepan",
-                    dailyData: lastWeekData.map(v => parseFloat((v * (prediksiFuzzy.totalMingguDepan / prediksiFuzzy.totalMingguIni)).toFixed(2))),
+                    minggu: `Minggu ${weeklyList.length + 1} (Prediksi)`, // Penomoran minggu otomatis
+                    tanggal: `${strMulai} - ${strAkhir}`, // Rentang tanggal otomatis sesuai kalender sungguhan
+                    dailyData: lastWeekData.map(v => {
+                        if (prediksiFuzzy.totalMingguIni == 0) return v;
+                        return parseFloat((v * (prediksiFuzzy.totalMingguDepan / prediksiFuzzy.totalMingguIni)).toFixed(2));
+                    }),
                     status: prediksiFuzzy.status === "Bahaya" ? "Potensi Lonjakan" : "Pemakaian Stabil",
                     isPrediction: true
                 });
             }
         }
 
+        // --- PROSES RENDER TABEL ---
         tbody.innerHTML = '';
 
         weeklyList.forEach((item, index) => {
             const totalKwh = item.dailyData.reduce((a, b) => a + b, 0).toFixed(2);
             const canvasId = `chartWeekly_${index}`;
 
-            // BENTENG PELINDUNG: Fallback teks agar tidak mungkin kosong/invisible
-            const teksMinggu = item.minggu || (item.isPrediction ? "Minggu Depan (Prediksi)" : "Minggu Aktual");
-            const teksTanggal = item.tanggal || "Estimasi 7 Hari Kedepan";
-            const teksStatus = item.status || (item.isPrediction ? "Pemakaian Stabil" : "Normal");
+            const teksMinggu = item.minggu;
+            const teksTanggal = item.tanggal;
+            const teksStatus = item.status;
             const warnaTeks = item.isPrediction ? "#b453b4" : "#1d4c6b";
 
             const tr = document.createElement('tr');
@@ -356,7 +370,7 @@
                             legend: { display: false },
                             tooltip: {
                                 callbacks: {
-                                    label: (context) => ` Pakai: ${context.raw} kWh` 
+                                    label: (context) => ` Pakai: ${context.raw} kWh`
                                 }
                             }
                         },
@@ -372,5 +386,4 @@
 
     setTimeout(updateTabelMingguan, 600);
 
-    
 })();
