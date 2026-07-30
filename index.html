@@ -1,18 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Power Quality · PZEM-004T</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
     <link rel="stylesheet" href="UI.css">
 </head>
-
 <body>
     <div class="dashboard">
+        <!-- Tempat komponen dirender -->
         <div id="header-component"></div>
         <div id="metrics-component"></div>
         <div id="chart-component"></div>
@@ -35,12 +33,14 @@
         }
 
         async function initDashboard() {
+            // Memuat komponen HTML secara asinkron
             await loadComponent('header-component', 'components/header.html');
             await loadComponent('metrics-component', 'components/metric-cards.html');
             await loadComponent('chart-component', 'components/chart-row.html');
             await loadComponent('prediction-component', 'components/prediction-table.html');
             await loadComponent('footer-component', 'components/footer.html');
 
+            // Memuat logika utama setelah semua komponen selesai dirender
             const mainScript = document.createElement('script');
             mainScript.src = 'UI.js';
             document.body.appendChild(mainScript);
@@ -49,5 +49,4 @@
         window.addEventListener('DOMContentLoaded', initDashboard);
     </script>
 </body>
-
 </html>
