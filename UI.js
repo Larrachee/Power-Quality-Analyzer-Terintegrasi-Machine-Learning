@@ -1,4 +1,3 @@
-
 (function () {
     'use strict';
 
@@ -11,6 +10,8 @@
     const peakVEl = document.getElementById('peakV');
     const minVEl = document.getElementById('minV');
     const maxAEl = document.getElementById('maxA');
+    const mlInferenceValueEl = document.getElementById('mlInferenceValue');
+    const anomalyScoreSubEl = document.getElementById('anomalyScoreSub');
 
     // DOM Refs khusus Panel ML
     const mlStatusEl = document.getElementById('mlStatus');
@@ -138,6 +139,14 @@
 
             riskScore += (Math.random() * 0.03);
             riskScore = Math.min(Math.max(riskScore, 0.01), 0.99);
+
+            if (mlInferenceValueEl) {
+                const confidence = (100 - (riskcore * 100)).toFixed(1);
+                mlInferenceValueEl.innerHTML = `✔ ${confidence}%`;
+            }
+            if (anomalyScoreSubEl) {
+                anomalyScoreSubEl.textContent = `anomaly score ${riskScore.toFixed(2)}`;
+            }
 
             if (anomalyRiskEl) {
                 if (riskScore < 0.15) {
