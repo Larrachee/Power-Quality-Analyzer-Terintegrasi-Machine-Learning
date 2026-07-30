@@ -262,10 +262,45 @@
                 return;
             }
 
-            const weeks = [];
-            for (let i = 0; i < rawData.length; i += 7) {
-                weeks.push(rawData.slice(i, i + 7));
+            // --- BUG FIX: MENGISI TANGGAL YANG BOLONG DENGAN 0 kWh ---
+            // 1. Buat peta (map) data berdasarkan tanggal (YYYY-MM-DD)
+            const dataMap = {};
+            rawData.forEach(item => {
+                const dateStr = item.tanggal.split('T')[0].split(' ')[0]; 
+                dataMap[dateStr] = parseFloat(item.total_kwh_harian);
+            });
+
+            // 2. Tentukan tanggal awal dan akhir dari database
+            const firstDateStr = rawData[0].tanggal.split('T')[0].split(' ')[0];
+            const lastDateStr = rawData[rawData.length - 1].tanggal.split('T')[0].split(' ')[0];
+            
+            const startDate = new Date(firstDateStr);
+            const endDate = new Date(lastDateStr);
+            
+            // 3. Looping untuk membuat urutan kalender tanpa bolong
+            const filledData = [];
+            let currDate = new Date(startDate);
+            
+            while (currDate <= endDate) {
+                const yyyy = currDate.getFullYear();
+                const mm = String(currDate.getMonth() + 1).padStart(2, '0');
+                const dd = String(currDate.getDate()).padStart(2, '0');
+                const dateKey = `${yyyy}-${mm}-${dd}`;
+                
+                filledData.push({
+                    tanggal: dateKey,
+                    total_kwh_harian: dataMap[dateKey] || 0
+                });
+                
+                currDate.setDate(currDate.getDate() + 1); // Lanjut ke hari berikutnya
             }
+
+            // 4. CHUNKING: Pecah data yang sudah lengkap per 7 hari kalender
+            const weeks = [];
+            for (let i = 0; i < filledData.length; i += 7) {
+                weeks.push(filledData.slice(i, i + 7));
+            }
+            // ---------------------------------------------------------
 
             weeks.forEach((weekData, index) => {
                 const isLastWeek = (index === weeks.length - 1);
@@ -298,23 +333,23 @@
             const prediksiFuzzy = hitungPrediksiFuzzy(lastWeekData);
 
             if (prediksiFuzzy) {
-                // Mengambil tanggal terakhir dari database
-                const lastDataDate = new Date(rawData[rawData.length - 1].tanggal);
-
+                // Mengambil tanggal terakhir dari data yang sudah diurutkan kalendernya
+                const lastDataDate = new Date(rawData[rawData.length - 1].tanggal.split('T')[0].split(' ')[0]);
+                
                 // Menghitung tanggal prediksi (Besok s/d 7 Hari Kedepan)
                 const tglMulaiPrediksi = new Date(lastDataDate);
-                tglMulaiPrediksi.setDate(tglMulaiPrediksi.getDate() + 1); // Tambah 1 hari
-
+                tglMulaiPrediksi.setDate(tglMulaiPrediksi.getDate() + 1);
+                
                 const tglAkhirPrediksi = new Date(tglMulaiPrediksi);
-                tglAkhirPrediksi.setDate(tglAkhirPrediksi.getDate() + 6); // Rentang 7 hari
+                tglAkhirPrediksi.setDate(tglAkhirPrediksi.getDate() + 6);
 
                 const dateOptions = { day: '2-digit', month: 'short' };
                 const strMulai = tglMulaiPrediksi.toLocaleDateString('id-ID', dateOptions);
                 const strAkhir = tglAkhirPrediksi.toLocaleDateString('id-ID', dateOptions);
 
                 weeklyList.push({
-                    minggu: `Minggu ${weeklyList.length + 1} (Prediksi)`, // Penomoran minggu otomatis
-                    tanggal: `${strMulai} - ${strAkhir}`, // Rentang tanggal otomatis sesuai kalender sungguhan
+                    minggu: `Minggu ${weeklyList.length + 1} (Prediksi)`,
+                    tanggal: `${strMulai} - ${strAkhir}`,
                     dailyData: lastWeekData.map(v => {
                         if (prediksiFuzzy.totalMingguIni == 0) return v;
                         return parseFloat((v * (prediksiFuzzy.totalMingguDepan / prediksiFuzzy.totalMingguIni)).toFixed(2));
@@ -380,7 +415,7 @@
                             legend: { display: false },
                             tooltip: {
                                 callbacks: {
-                                    label: (context) => ` Pakai: ${context.raw} kWh`
+                                    label: (context) => ` Pakai: ${context.raw} kWh` 
                                 }
                             }
                         },
