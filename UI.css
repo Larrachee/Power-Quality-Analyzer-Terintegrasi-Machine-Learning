@@ -1,5 +1,3 @@
-
-/* ---------- RESET & BASE ---------- */
 * {
     margin: 0;
     padding: 0;
@@ -8,7 +6,7 @@
 }
 
 body {
-    background: #f2f6fe;
+    background: #f0f5fd;
     padding: 2rem 1.5rem;
     min-height: 100vh;
     display: flex;
@@ -21,7 +19,7 @@ body {
     width: 100%;
 }
 
-/* ---------- HEADER ---------- */
+/* header */
 .header {
     display: flex;
     flex-wrap: wrap;
@@ -30,7 +28,7 @@ body {
     margin-bottom: 2.4rem;
     background: rgba(255, 255, 255, 0.6);
     backdrop-filter: blur(8px);
-    padding: 0.8rem 2rem;
+    padding: 0.7rem 2rem;
     border-radius: 60px;
     box-shadow: 0 8px 24px rgba(0, 20, 40, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.8);
@@ -75,23 +73,12 @@ body {
 }
 
 @keyframes pulse-green {
-    0% {
-        opacity: 0.6;
-        transform: scale(0.95);
-    }
-
-    50% {
-        opacity: 1;
-        transform: scale(1.2);
-    }
-
-    100% {
-        opacity: 0.6;
-        transform: scale(0.95);
-    }
+    0% { opacity: 0.6; transform: scale(0.95); }
+    50% { opacity: 1; transform: scale(1.2); }
+    100% { opacity: 0.6; transform: scale(0.95); }
 }
 
-/* ---------- METRIC CARDS ---------- */
+/* metric cards */
 .metric-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -176,7 +163,7 @@ body {
     display: inline-block;
 }
 
-/* ---------- CHART ROW ---------- */
+/* chart row */
 .chart-row {
     display: grid;
     grid-template-columns: 2fr 1fr;
@@ -184,8 +171,7 @@ body {
     margin-bottom: 2rem;
 }
 
-.chart-box,
-.ml-panel {
+.chart-box, .ml-panel {
     background: rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(4px);
     border-radius: 28px;
@@ -195,13 +181,11 @@ body {
     transition: 0.2s;
 }
 
-.chart-box:hover,
-.ml-panel:hover {
+.chart-box:hover, .ml-panel:hover {
     border-color: rgba(42, 125, 225, 0.15);
 }
 
-.chart-box h3,
-.ml-panel h3 {
+.chart-box h3, .ml-panel h3 {
     font-weight: 500;
     font-size: 1rem;
     color: #1f4157;
@@ -211,8 +195,7 @@ body {
     align-items: center;
 }
 
-.chart-box h3 i,
-.ml-panel h3 i {
+.chart-box h3 i, .ml-panel h3 i {
     margin-right: 8px;
 }
 
@@ -246,7 +229,7 @@ body {
     color: #0a2635;
 }
 
-/* ---------- ML PANEL ---------- */
+/* ml panel */
 .ml-panel {
     display: flex;
     flex-direction: column;
@@ -333,7 +316,7 @@ body {
     border-radius: 10px;
 }
 
-/* ---------- TABLE (prediction) ---------- */
+/* prediction table */
 .prediction-wrapper {
     background: rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(4px);
@@ -389,7 +372,7 @@ body {
     color: #dc2626;
 }
 
-/* ---------- FOOTER ---------- */
+/* footer */
 .footer-note {
     margin-top: 1.8rem;
     font-size: 0.8rem;
@@ -409,36 +392,18 @@ body {
     opacity: 0.7;
 }
 
-/* ---------- RESPONSIVE ---------- */
+/* responsive */
 @media (max-width: 800px) {
-    .chart-row {
-        grid-template-columns: 1fr;
-    }
-
-    .header {
-        flex-direction: column;
-        align-items: start;
-        gap: 0.8rem;
-        border-radius: 32px;
-        padding: 1.2rem 1.5rem;
-    }
-
-    .metric-grid {
-        grid-template-columns: 1fr 1fr;
-    }
+    .chart-row { grid-template-columns: 1fr; }
+    .header { flex-direction: column; align-items: start; gap: 0.8rem; border-radius: 32px; padding: 1.2rem 1.5rem; }
+    .metric-grid { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 500px) {
-    .metric-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .header h1 {
-        font-size: 1.4rem;
-    }
+    .metric-grid { grid-template-columns: 1fr; }
+    .header h1 { font-size: 1.4rem; }
 }
 
-/* Styling Canvas Chart di Dalam Tabel */
 .table-chart-container {
     width: 180px;
     height: 40px;
