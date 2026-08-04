@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: application/json');
-header("Access-Control-Allow-Origin: *"); // Mengizinkan frontend mengambil data
+header("Access-Control-Allow-Origin: *");
 
 // Koneksi ke database
 $conn = new mysqli("localhost", "root", "", "db_power_quality");
@@ -9,7 +9,6 @@ if ($conn->connect_error) {
     die(json_encode(["error" => "Koneksi gagal: " . $conn->connect_error]));
 }
 
-// Menarik SELURUH data harian tanpa batasan 7 hari
 $sql = "SELECT 
             DATE(created_at) AS tanggal,
             ROUND(AVG(voltage), 1) AS rata_rata_tegangan,
