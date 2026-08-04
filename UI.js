@@ -85,9 +85,30 @@
     console.log('Connecting to Local WebSocket Server...');
     const ws = new WebSocket(wsUrl);
 
+    let waktuUpdateTerakhir = 0; // Variabel pengunci waktu
+
     ws.onopen = () => {
         console.log('✅ Connected to Local Node.js Server');
         if (mlStatusEl) mlStatusEl.textContent = 'active';
+    };
+
+    ws.onmessage = (event) => {
+        const waktuSekarang = Date.now();
+        
+        // Cek apakah sudah berlalu 20 menit (1.200.000 ms) sejak update terakhir
+        if (waktuSekarang - waktuUpdateTerakhir >= 1200000) {
+            try {
+                const data = JSON.parse(event.data);
+                
+                // ... (Biarkan seluruh kodingan perhitungan V, A, P, Grafik, dan ML milikmu tetap ada di sini) ...
+
+                // Catat waktu update ini sebagai acuan perhitungan 20 menit berikutnya
+                waktuUpdateTerakhir = waktuSekarang;
+                
+            } catch (e) {
+                console.error('Parse error:', e);
+            }
+        }
     };
 
     ws.onmessage = (event) => {
@@ -141,7 +162,8 @@
             riskScore = Math.min(Math.max(riskScore, 0.01), 0.99);
 
             if (mlInferenceValueEl) {
-                const confidence = (100 - (riskcore * 100)).toFixed(1);
+                // Perbaikan Typo: Mengganti riskcore menjadi riskScore
+                const confidence = (100 - (riskScore * 100)).toFixed(1);
                 mlInferenceValueEl.innerHTML = `✔ ${confidence}%`;
             }
             if (anomalyScoreSubEl) {
@@ -197,15 +219,13 @@
 
     // ---------- MODUL PREDIKSI FUZZY LOGIC (SUGENO) ----------
     function hitungPrediksiFuzzy(dataHistoris) {
-        // UBAH: Mengizinkan data 1 hari agar tabel prediksi tidak hilang di awal minggu
         if (!dataHistoris || dataHistoris.length === 0) return null;
 
         const totalMingguIni = dataHistoris.reduce((a, b) => a + b, 0);
-        // Jika data baru 1 hari, tren dianggap 0 (stabil)
         const trenKasar = dataHistoris.length > 1 ? dataHistoris[dataHistoris.length - 1] - dataHistoris[0] : 0;
 
         let muTurun = 0, muStabil = 0, muNaik = 0;
-        const batas = 0.5; // Batas toleransi 0.5 kWh
+        const batas = 0.5;
 
         if (trenKasar < -batas) {
             muTurun = 1;
@@ -262,45 +282,39 @@
                 return;
             }
 
-            // --- BUG FIX: MENGISI TANGGAL YANG BOLONG DENGAN 0 kWh ---
-            // 1. Buat peta (map) data berdasarkan tanggal (YYYY-MM-DD)
             const dataMap = {};
             rawData.forEach(item => {
-                const dateStr = item.tanggal.split('T')[0].split(' ')[0]; 
+                const dateStr = item.tanggal.split('T')[0].split(' ')[0];
                 dataMap[dateStr] = parseFloat(item.total_kwh_harian);
             });
 
-            // 2. Tentukan tanggal awal dan akhir dari database
             const firstDateStr = rawData[0].tanggal.split('T')[0].split(' ')[0];
             const lastDateStr = rawData[rawData.length - 1].tanggal.split('T')[0].split(' ')[0];
-            
+
             const startDate = new Date(firstDateStr);
             const endDate = new Date(lastDateStr);
-            
-            // 3. Looping untuk membuat urutan kalender tanpa bolong
+
             const filledData = [];
             let currDate = new Date(startDate);
-            
+
             while (currDate <= endDate) {
                 const yyyy = currDate.getFullYear();
                 const mm = String(currDate.getMonth() + 1).padStart(2, '0');
                 const dd = String(currDate.getDate()).padStart(2, '0');
                 const dateKey = `${yyyy}-${mm}-${dd}`;
-                
+
                 filledData.push({
                     tanggal: dateKey,
                     total_kwh_harian: dataMap[dateKey] || 0
                 });
-                
-                currDate.setDate(currDate.getDate() + 1); // Lanjut ke hari berikutnya
+
+                currDate.setDate(currDate.getDate() + 1);
             }
 
-            // 4. CHUNKING: Pecah data yang sudah lengkap per 7 hari kalender
             const weeks = [];
             for (let i = 0; i < filledData.length; i += 7) {
                 weeks.push(filledData.slice(i, i + 7));
             }
-            // ---------------------------------------------------------
 
             weeks.forEach((weekData, index) => {
                 const isLastWeek = (index === weeks.length - 1);
@@ -327,19 +341,16 @@
             return;
         }
 
-        // --- PREDIKSI MINGGU DEPAN DENGAN TANGGAL OTOMATIS ---
         if (weeklyList.length > 0) {
             const lastWeekData = weeklyList[weeklyList.length - 1].dailyData;
             const prediksiFuzzy = hitungPrediksiFuzzy(lastWeekData);
 
             if (prediksiFuzzy) {
-                // Mengambil tanggal terakhir dari data yang sudah diurutkan kalendernya
                 const lastDataDate = new Date(rawData[rawData.length - 1].tanggal.split('T')[0].split(' ')[0]);
-                
-                // Menghitung tanggal prediksi (Besok s/d 7 Hari Kedepan)
+
                 const tglMulaiPrediksi = new Date(lastDataDate);
                 tglMulaiPrediksi.setDate(tglMulaiPrediksi.getDate() + 1);
-                
+
                 const tglAkhirPrediksi = new Date(tglMulaiPrediksi);
                 tglAkhirPrediksi.setDate(tglAkhirPrediksi.getDate() + 6);
 
@@ -360,7 +371,6 @@
             }
         }
 
-        // --- PROSES RENDER TABEL ---
         tbody.innerHTML = '';
 
         weeklyList.forEach((item, index) => {
@@ -415,7 +425,7 @@
                             legend: { display: false },
                             tooltip: {
                                 callbacks: {
-                                    label: (context) => ` Pakai: ${context.raw} kWh` 
+                                    label: (context) => ` Pakai: ${context.raw} kWh`
                                 }
                             }
                         },
